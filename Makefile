@@ -13,7 +13,7 @@ libuv/uv.a:
 	$(MAKE) -C libuv
 
 db.o: db.c
-	$(CC) -c db.c -o db.o -I libuv/include
+	$(CC) --std=c89 -D_GNU_SOURCE -g -Wall -Werror -c db.c -o db.o -I libuv/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 db: db.o libuv/uv.a
 	$(CC) db.o libuv/uv.a $(LIBS) -o db
