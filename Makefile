@@ -7,17 +7,17 @@ LDFLAGS+=-Wl,-E
 LIBS+=-lrt
 endif
 
-# verbose build
-export Q=
-MAKEFLAGS+=-e
-
 all: db
 
-libuv/uv.a: libuv
-	make -C libuv
+libuv/uv.a:
+	$(MAKE) -C libuv
 
 db.o: db.c
 	$(CC) -c db.c -o db.o -I libuv/include
 
-db: db.o
+db: db.o libuv/uv.a
 	$(CC) db.o libuv/uv.a $(LIBS) -o db
+
+clean:
+	rm -f db db.o
+	$(MAKE) -C libuv clean
