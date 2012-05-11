@@ -41,6 +41,7 @@ uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
 void on_read(uv_stream_t* stream, ssize_t nread, uv_buf_t buf) {
 /*  client_t* client = stream->data;
 */
+  printf("on_read %.*s\n", (int)buf.len, buf.base);
   /* Handle data */
 
   free(buf.base);
