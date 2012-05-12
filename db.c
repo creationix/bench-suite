@@ -3,79 +3,151 @@
 #include <assert.h>
 #include "uv.h"
 
-static uv_stream_t server;
+typedef enum {
+  START = 0,
+  USERNAME,
+  SESSID
+} state_t;
 
-#define USER_DATA               \
+typedef struct {
+  uv_tcp_t handle;
+  state_t state;
+  int offset;
+} client_t;
+
+static const char user_key[] = "users/creationix";
+static int user_key_len = sizeof(user_key);
+
+static char user[] =      \
   "{\"name\":\"Tim Caswell\""   \
   ",\"twitter\":\"creationix\"" \
   ",\"github\":\"creationix\""  \
   ",\"irc\":\"creationix\""     \
   ",\"projects\":[\"node\",\"Luvit\",\"Luvmonkey\",\"candor.io\",\"vfs\",\"architect\",\"wheat\",\"step\"]"\
   ",\"websites\":[\"http://howtonode.org/\",\"http://creationix.com/\",\"http://nodebits.org/\"]"\
-  "}"
+  "}";
+static int user_len = sizeof(user);
 
-#define SESSION_DATA              \
+static const char session_key[] = "sessions/eo299pqyw9791jie7yp";
+static int session_key_len = sizeof(session_key);
+
+static char session[] =     \
   "{\"username\": \"creationix\"" \
   ",\"pageViews\": 0"             \
-  "}"
+  "}";
+static int session_len = sizeof(session);
 
-#define ERROR_DATA "Invalid Query"
 
-typedef struct {
-  uv_tcp_t handle;
-  uv_write_t write_req;
-} client_t;
-
-void on_close(uv_handle_t* handle) {
-  free(handle);
-  /* printf("disconnected\n"); */
-}
-
-uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
+static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
   uv_buf_t buf;
   buf.base = malloc(suggested_size);
   buf.len = suggested_size;
   return buf;
 }
 
-void on_read(uv_stream_t* stream, ssize_t nread, uv_buf_t buf) {
-/*  client_t* client = stream->data;
-*/
-  printf("on_read %.*s\n", (int)buf.len, buf.base);
-  /* Handle data */
-
-  free(buf.base);
+static void on_close(uv_handle_t* handle) {
+  printf("%p: Handle closed.\n", handle); 
+  free(handle);
 }
 
-void on_connection(uv_stream_t* server_handle, int status) {
-  assert(server_handle == &server);
-  printf("connected\n"); 
+static void after_write(uv_write_t* req, int status) {
+  printf("after_write\n");
+  free(req);
+}
 
+
+static void on_read(uv_stream_t* socket, ssize_t nread, uv_buf_t buf) {
+  client_t* client = socket->data;
+  if (nread > 0) {
+    printf("%.*s", (int)buf.len, buf.base);
+    int i;
+    for (i = 0; i < nread; i++) {
+      char c = buf.base[i];
+      switch (client->state) {
+      case START:
+        if (c == user_key[0]) {
+          client->state = USERNAME;
+          client->offset = 1;
+        }
+        else if (c == session_key[0]) {
+          client->state = SESSID;
+          client->offset = 1;
+        }
+        else {
+          uv_close((uv_handle_t*)socket, on_close);
+          i = nread;
+        }
+        break;
+      case USERNAME:
+        if (user_key[client->offset] != c) {
+          uv_close((uv_handle_t*)socket, on_close);
+          i = nread;
+          break;
+        }
+        if (client->offset == user_key_len - 1) {
+          uv_write_t* req = (uv_write_t*)malloc(sizeof(uv_write_t));
+          uv_buf_t data[] = {{ .base = user, .len = user_len }};
+          uv_write(req, socket, data, 1, after_write);
+          client->state = START;
+          break;
+        }
+        client->offset++;
+        break;
+      case SESSID:
+        if (session_key[client->offset] != c) {
+          uv_close((uv_handle_t*)socket, on_close);
+          i = nread;
+          break;
+        }
+        if (client->offset == session_key_len - 1) {
+          uv_write_t* req = (uv_write_t*)malloc(sizeof(uv_write_t));
+          uv_buf_t data[] = {{ .base = session, .len = session_len }};
+          uv_write(req, socket, data, 1, after_write);
+          client->state = START;
+          break;
+        }
+        client->offset++;
+        break;
+      }
+    }
+  }
+  free(buf.base);
+  if (nread < 0) {
+    uv_err_t err = uv_last_error(uv_default_loop());
+    if (err.code != UV_EOF) {
+      fprintf(stderr, "%s: %s\n", uv_err_name(err), uv_strerror(err));
+    }
+    uv_close((uv_handle_t*)socket, on_close);
+  }
+
+}
+
+static void on_connection(uv_stream_t* server, int status) {
   client_t* client = malloc(sizeof(client_t));
-  uv_tcp_init(uv_default_loop(), &client->handle);
-  client->handle.data = client;
-
-  int r = uv_accept(&server, (uv_stream_t*)&client->handle);
-
-  if (r) {
+  uv_tcp_t* socket = &client->handle;
+  uv_tcp_init(uv_default_loop(), socket);
+  socket->data = client;
+  printf("%p: New Client.\n", client); 
+  if (uv_accept(server, (uv_stream_t*)socket)) {
     uv_err_t err = uv_last_error(uv_default_loop());
     fprintf(stderr, "accept: %s\n", uv_strerror(err));
     exit(-1);
   }
-
-  uv_read_start((uv_stream_t*)&client->handle, on_alloc, on_read);
-
+  uv_read_start((uv_stream_t*)socket, on_alloc, on_read);
 }
 
-void after_write(uv_write_t* req, int status) {
-  printf("after_write\n");
-  uv_close((uv_handle_t*)req->handle, on_close);
-}
 
 
 int main() {
 
-  uv_tcp_init(uv_default_loop(), (uv_tcp_t*)&server);
+  uv_tcp_t server;  
+
+  printf("user_key = '%.*s'\n", user_key_len, user_key);
+  printf("user = '%.*s'\n", user_len, user);
+  printf("session_key = '%.*s'\n", session_key_len, session_key);
+  printf("session = '%.*s'\n", session_len, session);
+
+  uv_tcp_init(uv_default_loop(), &server);
   struct sockaddr_in address = uv_ip4_addr("0.0.0.0", 5555);
   int r = uv_tcp_bind((uv_tcp_t*)&server, address);
 
@@ -85,7 +157,7 @@ int main() {
     return -1;
   }
 
-  r = uv_listen(&server, 128, on_connection);
+  r = uv_listen((uv_stream_t*)&server, 128, on_connection);
 
   if (r) {
     uv_err_t err = uv_last_error(uv_default_loop());
@@ -96,6 +168,7 @@ int main() {
   printf("Raw C database listening on port 5555\n");
   /* Block in the main loop */
   uv_run(uv_default_loop());
+  
 
   return 0;
 }
