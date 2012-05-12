@@ -5,8 +5,8 @@ function connect(port, callback) {
   var callbacks = [];
   var db = new EventEmitter();
   db.query = function (table, key, callback) {
-    socket.write(table + "/" + key + "\0");
     callbacks.push(callback);
+    socket.write(table + "/" + key + "\0");
   };
   db.close = function () {
     socket.end();
@@ -16,22 +16,9 @@ function connect(port, callback) {
   });
 
   // parse responses
-  var parts = [];
   socket.on("data", function (chunk) {
-    var start = 0;
-    for (var i = 0, l = chunk.length; i < l; i++) {
-      if (chunk[i] === 0) {
-        if (i > start) {
-          parts.push(chunk.slice(start, i));
-        }
-        i++;        
-        flush();
-        start = i;
-      }    
-    }
-    if (start < l) {
-      parts.push(chunk.slice(start));
-    }
+    // TODO: Don't assume packets always contain exactly one response.
+    callbacks.shift()(null, JSON.parse(chunk.toString('ascii', 0, chunk.length - 1)));
   });
   
   socket.on("close", function () {
@@ -65,7 +52,7 @@ function connect(port, callback) {
 
 var done = 0;
 var dbs = [];
-function client(left) {
+function client() {
   connect(5555, function (err, db) {
     if (err) throw err;
     dbs.push(db);
