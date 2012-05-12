@@ -46,12 +46,12 @@ static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
 }
 
 static void on_close(uv_handle_t* handle) {
-  printf("%p: Handle closed.\n", handle); 
+  printf("%p: Handle closed.\n", handle);
   free(handle);
 }
 
 static void after_write(uv_write_t* req, int status) {
-  printf("after_write\n");
+  /* printf("%p: after_write\n", req->handle); */
   free(req);
 }
 
@@ -59,7 +59,6 @@ static void after_write(uv_write_t* req, int status) {
 static void on_read(uv_stream_t* socket, ssize_t nread, uv_buf_t buf) {
   client_t* client = socket->data;
   if (nread > 0) {
-    printf("%.*s", (int)buf.len, buf.base);
     int i;
     for (i = 0; i < nread; i++) {
       char c = buf.base[i];
@@ -115,7 +114,7 @@ static void on_read(uv_stream_t* socket, ssize_t nread, uv_buf_t buf) {
   if (nread < 0) {
     uv_err_t err = uv_last_error(uv_default_loop());
     if (err.code != UV_EOF) {
-      fprintf(stderr, "%s: %s\n", uv_err_name(err), uv_strerror(err));
+      fprintf(stderr, "%p: %s: %s\n", socket, uv_err_name(err), uv_strerror(err));
     }
     uv_close((uv_handle_t*)socket, on_close);
   }
@@ -127,10 +126,10 @@ static void on_connection(uv_stream_t* server, int status) {
   uv_tcp_t* socket = &client->handle;
   uv_tcp_init(uv_default_loop(), socket);
   socket->data = client;
-  printf("%p: New Client.\n", client); 
+  printf("%p: New Client.\n", socket);
   if (uv_accept(server, (uv_stream_t*)socket)) {
     uv_err_t err = uv_last_error(uv_default_loop());
-    fprintf(stderr, "accept: %s\n", uv_strerror(err));
+    fprintf(stderr, "%p: accept: %s\n", socket, uv_strerror(err));
     exit(-1);
   }
   uv_read_start((uv_stream_t*)socket, on_alloc, on_read);
@@ -140,35 +139,27 @@ static void on_connection(uv_stream_t* server, int status) {
 
 int main() {
 
-  uv_tcp_t server;  
-
-  printf("user_key = '%.*s'\n", user_key_len, user_key);
-  printf("user = '%.*s'\n", user_len, user);
-  printf("session_key = '%.*s'\n", session_key_len, session_key);
-  printf("session = '%.*s'\n", session_len, session);
+  uv_tcp_t server;
 
   uv_tcp_init(uv_default_loop(), &server);
   struct sockaddr_in address = uv_ip4_addr("0.0.0.0", 5555);
-  int r = uv_tcp_bind((uv_tcp_t*)&server, address);
 
-  if (r) {
+  if (uv_tcp_bind((uv_tcp_t*)&server, address)) {
     uv_err_t err = uv_last_error(uv_default_loop());
-    fprintf(stderr, "bind: %s\n", uv_strerror(err));
+    fprintf(stderr, "%p: bind: %s\n", &server, uv_strerror(err));
     return -1;
   }
 
-  r = uv_listen((uv_stream_t*)&server, 128, on_connection);
-
-  if (r) {
+  if (uv_listen((uv_stream_t*)&server, 128, on_connection)) {
     uv_err_t err = uv_last_error(uv_default_loop());
-    fprintf(stderr, "listen: %s\n", uv_strerror(err));
+    fprintf(stderr, "%p: listen: %s\n", &server, uv_strerror(err));
     return -1;
   }
 
-  printf("Raw C database listening on port 5555\n");
+  printf("%p: Raw C database listening on port 5555\n", &server);
   /* Block in the main loop */
   uv_run(uv_default_loop());
-  
+
 
   return 0;
 }
