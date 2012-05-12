@@ -75,7 +75,6 @@ local function client()
 end
 
 local hrtime = require('uv_native').hrtime
-p({hrtime=hrtime})
 
 local before = hrtime()
 setInterval(1000, function ()
