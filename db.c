@@ -123,6 +123,8 @@ static void on_read(uv_stream_t* socket, ssize_t nread, uv_buf_t buf) {
 
 static void on_connection(uv_stream_t* server, int status) {
   client_t* client = malloc(sizeof(client_t));
+  client->state = START;
+  client->offset = 0;
   uv_tcp_t* socket = &client->handle;
   uv_tcp_init(uv_default_loop(), socket);
   socket->data = client;
