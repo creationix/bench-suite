@@ -22,40 +22,21 @@ function connect(port, callback) {
   });
   
   socket.on("close", function () {
-    var err = new Error("Connection closed");
-    callbacks.forEach(function (callback) {
-      callback(err);
-    });
-    callbacks.length = 0;
+    throw new Error("Connection closed");
   });
 
   socket.on("error", function (err) {
-    callbacks.forEach(function (callback) {
-      callback(err);
-    });
-    callbacks.length = 0;
     db.close();
+    throw err;
   });
   
-  function flush() {
-    var json = parts.join("");
-    parts.length = 0;
-    var callback = callbacks.shift();
-    try {
-      var data = JSON.parse(json);
-    } catch (err) {
-      return callback(err);
-    }
-    callback(null, data);
-  }
+
 }
 
 var done = 0;
-var dbs = [];
 function client() {
   connect(5555, function (err, db) {
     if (err) throw err;
-    dbs.push(db);
     next();
     function next() {
       db.query("sessions", "eo299pqyw9791jie7yp", function (err, session) {
