@@ -4,6 +4,10 @@ As I work on several platforms that are often used as web frameworks, the first 
 
 Then there comes a flood of comments about how this benchmark is meaningless for any real-world work. So I hereby propose a new standard for http benchmarks.  Using this standard data, platforms can implement this challenge and see how well they perform.  It's still not a real-world program, but it's a but closer and involves actual I/O.
 
+## The Challenge
+
+To accept the challenge, fork this repo on github, add an implementation of the benchmark server in your framework.  Include clear instructions on how to run it and show what results you get when testing against the other implementations.  Send a pull request when you're ready to merge back in.
+
 ## The Database
 
 Most real apps have some sort of persistent database.  Provided in this repo is a simple mock database. The source is in `db.c`.  Build is using the included Makefile.  Make sure to pull in the libuv submodule.
