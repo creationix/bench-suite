@@ -2,31 +2,21 @@
 
 As I work on several platforms that are often used as web frameworks, the first example application is always an http server that serves the static string "Hello World" to all users.  Then these are benchmarked against each other to prove which platform is the best at being web scale.
 
-Then there comes a flood of comments about how this benchmark is meaningless for any real-world work. So I hereby propose a new standard for http benchmarks.  Using this standard data, platforms can implement this challenge and see how well they perform.
+Then there comes a flood of comments about how this benchmark is meaningless for any real-world work. So I hereby propose a new standard for http benchmarks.  Using this standard data, platforms can implement this challenge and see how well they perform.  It's still not a real-world program, but it's a but closer and involves actual I/O.
 
 ## The Database
 
-Most real apps have some sort of persistent database.  Here I'll have two "tables" named "users" and "sessions".  Their contents are simple.  This can be implemented using an in-memory object like I've done here, or it can be in redis, riak, or some other system.  Whatever makes sense for your platform.
+Most real apps have some sort of persistent database.  Provided in this repo is a simple mock database. The source is in `db.c`.  Build is using the included Makefile.  Make sure to pull in the libuv submodule.
 
-```js
-var users = {
-  creationix: {
-    name: "Tim Caswell",
-    twitter: "creationix",
-    github: "creationix",
-    irc: "creationix",
-    projects: ["node", "Luvit", "Luvmonkey", "candor.io", "vfs", "architect", "wheat", "step"],
-    websites: ["http://howtonode.org/", "http://creationix.com/", "http://nodebits.org/"]
-  },
-};
+This is a small and fast event-based tcp server.  To query, simply connect and write your key to the socket as a null-terminated string with table first, then row key.  For example, the key `orange` in the table `colors` would be queried with `"colors/orange\0"`.
 
-var sessions = {
-  eo299pqyw9791jie7yp: {
-    username: "creationix",
-    pageViews: 0,
-  },
-};
-```
+It will then respond with the JSON representation of that entry as a null terminated string.  This single-threaded server is event-based so you can have as many concurrent connections to it as you want.
+
+Also it supports pipelining.  Meaning you can send a second query on the same socket connection before waiting for the response to the first.
+
+Use as many instances as you want.  Since this server is single threaded, a fast client may be able to saturate the one CPU core this server uses.  The port is passed in as argv[1].
+
+This mock database has two tables, `users` and `sessions`.  In session responses, the `username` field is the key in the `users` table.
 
 ## The Request
 
@@ -52,7 +42,7 @@ function myprofile(user) {
 }
 ```
 
-The http request should have a cookie called "SESSID" or something that contains the session key "eo299pqyw9791jie7yp".  In order to make this benchmark fair, no caching is allowed in the session or database lookups (If you use just one process, then an in-process object or table is fair game).  This is to simulate requests not being the same user and session every time.  The html template, however can be compiled and saved at startup since a site usually has a finite number of templates.
+The http request should have a cookie called "SESSID" or something that contains the session key "eo299pqyw9791jie7yp".  In order to make this benchmark fair, no caching is allowed in the session or database lookups.  This is to simulate requests not being the same user and session every time.  The html template, however can be compiled and saved at startup since a site usually has a finite number of templates.
 
 After getting the session ID out of the cookie, the server will need to look up the session data.  Then from that load the html template and merge it with the user's data from the database.  The template itself can pull from the db or you can pull from the db and pass the data to the template.
 
@@ -71,4 +61,6 @@ To test these, you need to send in the proper headers.  In apache-bench this can
 
 ## Points to Ponder
 
-Notice that I said that it's legal to store the data in-memory.  This means that a simple node server can implement this without doing any I/O to gather the data.  But if you want to scale across CPU cores for maximum speed, then a shared data store is required.  This is a tradeoff in real applications.  Scaling to threads within a process, then to processes within a machine, then across machines, across data centers, etc is hard.  The larger the cluster, the harder is it to share data.  Since the data is read-only, this isn't too hard, but I don't want to make the benchmark too complicated.
+Even though the mock database is single-threaded and event based, your http server can be anything.  It can scale to multiple theads, processes, or even machines.  Run as many instances of the db as you wish.  Just report your architecture in your published benchmark results.
+
+I've included a couple database clients that I used in testing.  One is written using node.js, the other using luvit.io.  They are simple and probably will break under high load, but it gives a good idea about how to use the mock database.
