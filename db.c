@@ -138,13 +138,18 @@ static void on_connection(uv_stream_t* server, int status) {
 }
 
 
+int main(int argc, char *argv[]) {
 
-int main() {
+  if (argc != 2) {
+    fprintf(stderr, "Usage:\n\t%s port\n", argv[0]);
+    exit(1);
+  }
+  int port = atoi(argv[1]);
 
   uv_tcp_t server;
 
   uv_tcp_init(uv_default_loop(), &server);
-  struct sockaddr_in address = uv_ip4_addr("0.0.0.0", 5555);
+  struct sockaddr_in address = uv_ip4_addr("0.0.0.0", port);
 
   if (uv_tcp_bind((uv_tcp_t*)&server, address)) {
     uv_err_t err = uv_last_error(uv_default_loop());
@@ -157,8 +162,9 @@ int main() {
     fprintf(stderr, "%p: listen: %s\n", &server, uv_strerror(err));
     return -1;
   }
+  uv_tcp_nodelay(&server, 1);
 
-  printf("%p: Raw C database listening on port 5555\n", &server);
+  printf("%p: Raw C database listening on port %d\n", &server, port);
   /* Block in the main loop */
   uv_run(uv_default_loop());
 
