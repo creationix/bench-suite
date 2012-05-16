@@ -6,7 +6,7 @@ function connect(port, callback) {
   var db = new EventEmitter();
   db.query = function (table, key, callback) {
     callbacks.push(callback);
-    socket.write(table + "/" + key + "\0");
+    socket.write(table + "/" + key + "\n");
   };
   db.close = function () {
     socket.end();

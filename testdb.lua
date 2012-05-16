@@ -27,7 +27,7 @@ local function connect(port, callback)
   local db = Emitter:new()
   local socket
   function db.query(table, key, callback)
-    socket:write(table .. "/" .. key .. "\0")
+    socket:write(table .. "/" .. key .. "\n")
     Queue.push(callbacks, callback)
   end
   function db.close()

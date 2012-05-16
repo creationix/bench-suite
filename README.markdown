@@ -12,9 +12,9 @@ To accept the challenge, fork this repo on github, add an implementation of the 
 
 Most real apps have some sort of persistent database.  Provided in this repo is a simple mock database. The source is in `db.c`.  Build is using the included Makefile.  Make sure to pull in the libuv submodule.
 
-This is a small and fast event-based tcp server.  To query, simply connect and write your key to the socket as a null-terminated string with table first, then row key.  For example, the key `orange` in the table `colors` would be queried with `"colors/orange\0"`.
+This is a small and fast event-based tcp server.  To query, simply connect and write your key to the socket as a newling-terminated string with table first, then row key.  For example, the key `orange` in the table `colors` would be queried with `"colors/orange\n"`.
 
-It will then respond with the JSON representation of that entry as a null terminated string.  This single-threaded server is event-based so you can have as many concurrent connections to it as you want.
+It will then respond with the JSON representation of that entry as a newline terminated string.  This single-threaded server is event-based so you can have as many concurrent connections to it as you want.
 
 Also it supports pipelining.  Meaning you can send a second query on the same socket connection before waiting for the response to the first.
 

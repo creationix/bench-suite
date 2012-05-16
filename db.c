@@ -15,8 +15,8 @@ typedef struct {
   int offset;
 } client_t;
 
-static const char user_key[] = "users/creationix";
-static int user_key_len = sizeof(user_key);
+static const char user_key[] = "users/creationix\n";
+static int user_key_len = sizeof(user_key) - 1;
 
 static char user[] =      \
   "{\"name\":\"Tim Caswell\""   \
@@ -25,17 +25,17 @@ static char user[] =      \
   ",\"irc\":\"creationix\""     \
   ",\"projects\":[\"node\",\"Luvit\",\"Luvmonkey\",\"candor.io\",\"vfs\",\"architect\",\"wheat\",\"step\"]"\
   ",\"websites\":[\"http://howtonode.org/\",\"http://creationix.com/\",\"http://nodebits.org/\"]"\
-  "}";
-static int user_len = sizeof(user);
+  "}\n";
+static int user_len = sizeof(user) - 1;
 
-static const char session_key[] = "sessions/eo299pqyw9791jie7yp";
-static int session_key_len = sizeof(session_key);
+static const char session_key[] = "sessions/eo299pqyw9791jie7yp\n";
+static int session_key_len = sizeof(session_key) - 1;
 
 static char session[] =     \
   "{\"username\": \"creationix\"" \
   ",\"pageViews\": 0"             \
-  "}";
-static int session_len = sizeof(session);
+  "}\n";
+static int session_len = sizeof(session) - 1;
 
 
 static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
@@ -146,6 +146,7 @@ int main(int argc, char *argv[]) {
   }
   int port = atoi(argv[1]);
 
+  
   uv_tcp_t server;
 
   uv_tcp_init(uv_default_loop(), &server);
