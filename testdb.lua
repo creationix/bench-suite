@@ -27,20 +27,29 @@ local function connect(port, callback)
   local db = Emitter:new()
   local socket
   function db.query(table, key, callback)
+    -- p({socket=socket._handle.userdata,table=table,key=key,callback=callback})
     socket:write(table .. "/" .. key .. "\n")
     Queue.push(callbacks, callback)
   end
   function db.close()
-    socket:close()
+    socket:destroy()
   end
   socket = net.createConnection(port, function ()
     callback(nil, db)
   end)
 
+  local parser = JSON.streamingParser(function (value)
+    local callback = Queue.shift(callbacks)
+    -- p({socket=socket._handle.userdata,callback=callback,value=value})
+    callback(null, value)
+  end, {allow_multiple_values=true})
+
   -- parse responses
   socket:on("data", function (chunk)
-    -- TODO: Don't assume packets always contain exactly one response.
-    Queue.shift(callbacks)(null, JSON.parse(chunk:sub(1, #chunk - 1)));
+    parser:parse(chunk)
+  end)
+  socket:on("end", function ()
+    parser:complete()
   end)
   
   socket:on("close", function ()
@@ -55,24 +64,31 @@ local function connect(port, callback)
 end
 
 local done = 0
-local function client()
-  connect(5555, function (err, db)
+connect(5555, function (err, db)
+
+  local function client()
     if err then error(err) end
     local function next()
       db.query("sessions", "eo299pqyw9791jie7yp", function (err, session)
         if err then error(err) end
---        p({session=session})
+        -- p({session=session})
         db.query("users", session.username, function (err, user)
           if err then error(err) end
---          p({user=user})
+          -- p({user=user})
           done = done + 1
           next()
         end)
       end)
     end
     next()
-  end)
-end
+  end
+
+  -- Start 10 parallel pipelining clients
+  for i=1,10 do
+    client()
+  end
+
+end)
 
 local hrtime = require('uv_native').hrtime
 
@@ -86,6 +102,4 @@ setInterval(1000, function ()
   done = 0;
 end)
 
-client()
-client()
 
