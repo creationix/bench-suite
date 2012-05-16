@@ -95,7 +95,7 @@ local hrtime = require('uv_native').hrtime
 local before = hrtime()
 setInterval(1000, function ()
   local now = hrtime();
-  local delta = (now - before) / 10;
+  local delta = now - before;
   before = now;
   local speed = done * 1000 / delta;
   print(done .. " cycles in " .. delta .. "ms (" .. speed .. "/second)");
